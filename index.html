@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Food Memory Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(to bottom, #ffdab9, #fffdd0);
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }
+        .container {
+            max-width: 800px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+        .game-card {
+            background-color: #fff;
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            padding: 2.5rem;
+            text-align: center;
+            width: 100%;
+        }
+        .food-item-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .food-item {
+            font-size: 4rem;
+        }
+        .food-item-number {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #CD7F32;
+        }
+        .clickable-item {
+            font-size: 3rem;
+        }
+        .clickable-item.selected {
+            outline: 4px solid #4CAF50;
+            outline-offset: 4px;
+            border-radius: 1rem;
+        }
+        .drop-zone {
+            width: 5rem;
+            height: 5rem;
+            border: 3px dashed #d1d5db;
+            background-color: #f9fafb;
+            border-radius: 1rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 4rem;
+            transition: border-color 0.3s ease, background-color 0.3s ease;
+            position: relative;
+        }
+        .drop-zone-number {
+            position: absolute;
+            top: 0.5rem;
+            left: 0.5rem;
+            font-size: 1rem;
+            font-weight: bold;
+            color: #d1d5db;
+        }
+        .button {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .button:active {
+            transform: translateY(0);
+            box-shadow: none;
+        }
+        .place-arrow {
+            font-size: 2rem;
+            cursor: pointer;
+            color: #d1d5db;
+            transition: color 0.2s ease;
+        }
+        .place-arrow:hover {
+            color: #4CAF50;
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+        .animate-fade-out {
+            animation: fadeOut 0.5s forwards;
+        }
+        .game-state-message {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #CD7F32; /* Bronze */
+            min-height: 2rem;
+        }
+        .confetti-sprinkle {
+            position: absolute;
+            font-size: 1.5rem;
+            color: #FFD700;
+            animation: fall 5s linear forwards;
+            pointer-events: none;
+            z-index: 1000;
+        }
+        @keyframes fall {
+            0% {
+                transform: translate(0, -100vh) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(0, 100vh) rotate(720deg);
+                opacity: 0;
+            }
+        }
+        /* New CSS for trophy and star animation */
+        .trophy-container {
+            position: relative;
+            font-size: 6rem;
+            color: gold;
+            text-align: center;
+            margin-bottom: 2rem;
+            animation: pulse 1s infinite alternate;
+        }
+
+        .falling-star {
+            position: absolute;
+            font-size: 1.5rem;
+            color: gold;
+            animation: starFall 5s linear forwards;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        @keyframes starFall {
+            0% {
+                transform: translateY(0) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(200vh) rotate(720deg);
+                opacity: 0;
+            }
+        }
+
+        @keyframes pulse {
+            from { transform: scale(1); }
+            to { transform: scale(1.1); }
+        }
+        
+        @media (min-width: 640px) {
+            .food-item {
+                font-size: 5rem;
+            }
+            .clickable-item {
+                font-size: 4rem;
+            }
+            .drop-zone {
+                width: 6rem;
+                height: 6rem;
+                font-size: 5rem;
+            }
+        }
+        @media (min-width: 768px) {
+            .food-item {
+                font-size: 6rem;
+            }
+            .clickable-item {
+                font-size: 5rem;
+            }
+            .drop-zone {
+                width: 7rem;
+                height: 7rem;
+                font-size: 6rem;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+
+    <div class="container">
+        <div class="game-card">
+            <h1 id="game-title" class="text-4xl md:text-5xl font-bold mb-4 text-gray-800">Food Memory Game</h1>
+            <p class="text-gray-600 mb-8" id="initial-instructions" style="font-size: 18px;">Remember the sequence and position of the food items.</p>
+
+            <!-- Game Status and Timer -->
+            <div id="status-container" class="mb-8">
+                <p id="game-state-message" class="game-state-message"></p>
+                <div id="timer-bar" class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mt-2 hidden">
+                    <div class="bg-[#D4A373] h-2.5 rounded-full" style="width: 100%"></div>
+                </div>
+            </div>
+
+            <!-- Sequence Display Area -->
+            <div id="sequence-display" class="flex justify-center gap-4 mb-8 hidden">
+                <!-- Food items will be displayed here dynamically -->
+            </div>
+
+            <!-- Guess Area -->
+            <div id="guess-area" class="hidden">
+                <p class="text-xl font-semibold mb-4 text-gray-700">Click an item, then an arrow to place it:</p>
+                
+                <!-- Guess drop zones and arrows -->
+                <div id="drop-zone-container" class="flex justify-center gap-4 mb-2">
+                    <div class="drop-zone" data-index="0"></div>
+                    <div class="drop-zone" data-index="1"></div>
+                    <div class="drop-zone" data-index="2"></div>
+                    <div class="drop-zone" data-index="3"></div>
+                </div>
+                <div id="place-arrows" class="flex justify-center gap-12 sm:gap-16 md:gap-20 mb-8">
+                    <i class="fas fa-arrow-alt-circle-up place-arrow" data-index="0"></i>
+                    <i class="fas fa-arrow-alt-circle-up place-arrow" data-index="1"></i>
+                    <i class="fas fa-arrow-alt-circle-up place-arrow" data-index="2"></i>
+                    <i class="fas fa-arrow-alt-circle-up place-arrow" data-index="3"></i>
+                </div>
+
+                <!-- Clickable food items -->
+                <div id="clickable-items" class="flex flex-wrap justify-center gap-4">
+                    <!-- Clickable items will be populated here -->
+                </div>
+
+                <!-- Submit Button -->
+                <button id="submit-button" class="mt-8 bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-full shadow-lg button" style="font-size: 2rem;">
+                    Check
+                </button>
+            </div>
+
+            <!-- Results Display -->
+            <div id="results-display" class="hidden">
+                <!-- Trophy element, hidden initially -->
+                <div id="trophy-display" class="trophy-container hidden">
+                    <i class="fas fa-trophy"></i>
+                </div>
+                <p id="result-message" class="text-2xl font-bold text-gray-800 mb-4"></p>
+                <p id="score-message" class="text-xl text-gray-700 mb-6 hidden"></p>
+                <p id="final-sequence-label" class="text-xl font-semibold mb-4 text-gray-700 hidden">The correct sequence was:</p>
+                <div id="correct-sequence-display" class="mb-4 flex justify-center gap-4"></div>
+            </div>
+
+            <!-- Game Control Buttons -->
+            <div id="controls" class="mt-2 flex justify-center space-x-4">
+                <button id="start-button" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-full shadow-lg button" style="font-size: 2rem;">
+                    Start Game
+                </button>
+                <button id="play-again-button" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-full shadow-lg button hidden">
+                    Play Again
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Use an array of objects to easily manage food items
+        const foodEmojis = [
+            { emoji: '🍨', name: 'Ice Cream Dessert' },
+            { emoji: '🍰', name: 'Cake' },
+            { emoji: '🥞', name: 'Pancakes' },
+            { emoji: '🌮', name: 'Taco' }
+        ];
+
+        // Global state variables
+        let sequence = [];
+        let playerGuess = [];
+        let timer;
+        let selectedFood = null;
+        const gameDuration = 5000; // 5 seconds in milliseconds
+
+        // Get DOM elements
+        const gameTitle = document.getElementById('game-title');
+        const startButton = document.getElementById('start-button');
+        const playAgainButton = document.getElementById('play-again-button');
+        const submitButton = document.getElementById('submit-button');
+        const sequenceDisplay = document.getElementById('sequence-display');
+        const guessArea = document.getElementById('guess-area');
+        const resultsDisplay = document.getElementById('results-display');
+        const resultMessage = document.getElementById('result-message');
+        const scoreMessage = document.getElementById('score-message');
+        const correctSequenceDisplay = document.getElementById('correct-sequence-display');
+        const clickableItemsContainer = document.getElementById('clickable-items');
+        const placeArrowsContainer = document.getElementById('place-arrows');
+        const dropZonesContainer = document.getElementById('drop-zone-container');
+        const gameStateMessage = document.getElementById('game-state-message');
+        const timerBar = document.getElementById('timer-bar');
+        const initialInstructions = document.getElementById('initial-instructions');
+        const finalSequenceLabel = document.getElementById('final-sequence-label');
+        const trophyDisplay = document.getElementById('trophy-display');
+
+        // Event Listeners
+        startButton.addEventListener('click', startGame);
+        playAgainButton.addEventListener('click', resetGame);
+        submitButton.addEventListener('click', checkGuess);
+
+        // Helper functions
+        function showElement(element) { element.classList.remove('hidden'); }
+        function hideElement(element) { element.classList.add('hidden'); }
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+        
+        // Function to create falling stars from the trophy position
+        function createFallingStarsFromTrophy() {
+            const starCount = 50;
+            const trophyRect = trophyDisplay.getBoundingClientRect();
+            const startX = trophyRect.left + trophyRect.width / 2;
+            const startY = trophyRect.top + trophyRect.height / 2;
+            
+            for (let i = 0; i < starCount; i++) {
+                const star = document.createElement('div');
+                star.classList.add('falling-star');
+                star.textContent = '★'; // Star character
+                
+                // Set initial position to be near the trophy
+                star.style.left = `${startX + (Math.random() - 0.5) * 50}px`;
+                star.style.top = `${startY + (Math.random() - 0.5) * 50}px`;
+
+                // Add random delay and duration for a more natural effect
+                star.style.animationDelay = `${Math.random() * 0.5}s`;
+                star.style.animationDuration = `${4 + Math.random() * 2}s`;
+                
+                document.body.appendChild(star);
+                
+                // Clean up the stars after their animation is done
+                setTimeout(() => star.remove(), 5000);
+            }
+        }
+
+        function startGame() {
+            // Reset state
+            sequence = [];
+            playerGuess = [];
+            selectedFood = null;
+
+            // Generate a random sequence
+            const shuffledFood = shuffleArray([...foodEmojis]);
+            sequence = shuffledFood.map(item => item.emoji);
+
+            // Set up UI for the "remember" phase
+            hideElement(startButton);
+            hideElement(resultsDisplay);
+            hideElement(guessArea);
+            hideElement(initialInstructions); 
+            hideElement(gameTitle); 
+            showElement(sequenceDisplay);
+            showElement(timerBar);
+            gameStateMessage.textContent = 'Remember the sequence!';
+            gameStateMessage.style.color = '#CD7F32'; 
+
+            // Display the sequence with numbers
+            sequenceDisplay.innerHTML = ''; 
+            sequence.forEach((emoji, index) => {
+                const itemContainer = document.createElement('div');
+                itemContainer.classList.add('food-item-container', 'animate-pulse');
+                
+                const itemNumber = document.createElement('div');
+                itemNumber.classList.add('food-item-number');
+                itemNumber.textContent = index + 1;
+                
+                const itemEmoji = document.createElement('div');
+                itemEmoji.classList.add('food-item');
+                itemEmoji.textContent = emoji;
+                
+                itemContainer.appendChild(itemNumber);
+                itemContainer.appendChild(itemEmoji);
+                sequenceDisplay.appendChild(itemContainer);
+            });
+
+            // Start the timer
+            let timeLeft = gameDuration;
+            const timerBarInner = timerBar.querySelector('div');
+            timerBarInner.style.width = '100%';
+            timer = setInterval(() => {
+                timeLeft -= 100;
+                const percentage = (timeLeft / gameDuration) * 100;
+                timerBarInner.style.width = `${percentage}%`;
+
+                if (timeLeft <= 0) {
+                    clearInterval(timer);
+                    gameStateMessage.textContent = '';
+                    setTimeout(endRememberPhase, 500); 
+                }
+            }, 100);
+        }
+
+        function endRememberPhase() {
+            // Animate the food items fading out
+            const foodItems = sequenceDisplay.querySelectorAll('.food-item-container');
+            foodItems.forEach(item => item.classList.add('animate-fade-out'));
+
+            // Wait for the fade-out animation to complete before switching views
+            setTimeout(() => {
+                hideElement(sequenceDisplay);
+                hideElement(timerBar);
+                showElement(guessArea);
+                setupGuessArea();
+            }, 500); 
+        }
+
+        function setupGuessArea() {
+            // Reset player guess array
+            playerGuess = new Array(sequence.length).fill(null);
+
+            // Populate clickable items
+            clickableItemsContainer.innerHTML = '';
+            const shuffledClickables = shuffleArray([...foodEmojis.map(item => item.emoji)]);
+            shuffledClickables.forEach(emoji => {
+                const item = document.createElement('div');
+                item.classList.add('clickable-item', 'food-item', 'p-4', 'bg-gray-200', 'rounded-full', 'shadow-md', 'hover:bg-gray-300');
+                item.textContent = emoji;
+                item.setAttribute('data-emoji', emoji);
+                item.addEventListener('click', selectFoodItem);
+                clickableItemsContainer.appendChild(item);
+            });
+
+            // Set up drop zones and arrows
+            const dropZones = document.querySelectorAll('.drop-zone');
+            dropZones.forEach((zone, index) => {
+                zone.innerHTML = `<span class="drop-zone-number">${index + 1}</span>`;
+            });
+            const placeArrows = document.querySelectorAll('.place-arrow');
+            placeArrows.forEach(arrow => {
+                arrow.addEventListener('click', placeFoodItem);
+            });
+
+            // Set up UI
+            gameStateMessage.textContent = 'Click a food, then an arrow to place it.';
+            gameStateMessage.style.color = '#CD7F32'; 
+        }
+
+        function selectFoodItem(e) {
+            // Deselect any previously selected item
+            const currentSelected = document.querySelector('.clickable-item.selected');
+            if (currentSelected) {
+                currentSelected.classList.remove('selected');
+            }
+            
+            // Select the new item
+            selectedFood = e.target.getAttribute('data-emoji');
+            e.target.classList.add('selected');
+        }
+
+        function placeFoodItem(e) {
+            if (selectedFood) {
+                const index = parseInt(e.target.getAttribute('data-index'));
+                const targetDropZone = dropZonesContainer.children[index];
+
+                if (targetDropZone.querySelector('.food-item') === null) {
+                    // Place the food item in the drop zone
+                    const newFoodItem = document.createElement('div');
+                    newFoodItem.classList.add('food-item');
+                    newFoodItem.textContent = selectedFood;
+                    targetDropZone.appendChild(newFoodItem);
+                    
+                    // Update player guess array
+                    playerGuess[index] = selectedFood;
+
+                    // Remove the item from the clickable list
+                    const sourceItem = document.querySelector(`.clickable-item[data-emoji="${selectedFood}"]`);
+                    sourceItem.style.opacity = '0';
+                    sourceItem.style.pointerEvents = 'none';
+
+                    // Reset selected food state
+                    const currentSelected = document.querySelector('.clickable-item.selected');
+                    if (currentSelected) {
+                        currentSelected.classList.remove('selected');
+                    }
+                    selectedFood = null;
+                }
+            } else {
+                gameStateMessage.textContent = 'Please select a food item first!';
+            }
+        }
+
+        function checkGuess() {
+            // Check if all spots are filled
+            if (playerGuess.includes(null)) {
+                gameStateMessage.textContent = 'Please place all four food items!';
+                return;
+            }
+
+            let correctCount = 0;
+
+            // Check for correct positions
+            for (let i = 0; i < sequence.length; i++) {
+                if (playerGuess[i] === sequence[i]) {
+                    correctCount++;
+                }
+            }
+
+            hideElement(guessArea);
+            hideElement(gameStateMessage); 
+            showElement(resultsDisplay);
+            showElement(playAgainButton);
+            showElement(finalSequenceLabel); 
+            
+            // Display results
+            if (correctCount === sequence.length) {
+                resultMessage.textContent = "You win! Perfect!";
+                resultMessage.style.color = '#CD7F32'; 
+                showElement(trophyDisplay);
+                createFallingStarsFromTrophy(); 
+            } else {
+                resultMessage.textContent = "Game Over. Try again!";
+                resultMessage.style.color = '#CD7F32'; 
+                hideElement(trophyDisplay);
+            }
+
+            hideElement(scoreMessage);
+            
+            // Display the correct sequence
+            correctSequenceDisplay.innerHTML = '';
+            sequence.forEach(emoji => {
+                const item = document.createElement('div');
+                item.classList.add('food-item');
+                item.textContent = emoji;
+                correctSequenceDisplay.appendChild(item);
+            });
+        }
+
+        function resetGame() {
+            // Reset UI
+            hideElement(playAgainButton);
+            hideElement(resultsDisplay);
+            hideElement(guessArea);
+            hideElement(finalSequenceLabel); 
+            hideElement(trophyDisplay); // Make sure the trophy is hidden on reset
+            showElement(startButton);
+            showElement(initialInstructions); 
+            showElement(gameStateMessage); 
+            showElement(gameTitle); 
+            resultMessage.style.color = '#CD7F32'; 
+            gameStateMessage.textContent = ''; 
+        }
+
+        // Initial state on page load
+        resetGame();
+
+    </script>
+</body>
+</html>
